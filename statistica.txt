@@ -1,10 +1,26 @@
-nume fisier: imagine.bmp
-inaltime: 1280
-lungime: 1920
-dimensiune: 7372938
-identificatorul utilizatorului: 1000
-timpul ultimei modificari: 11/11/23
+nume fisier: file.txt
+dimensiune: 38
+identificatorul utilizatorului: 0
+timpul ultimei modificari: 26.11.2023
 contorul de legaturi: 1
 drepturi de acces user: RW-
-drepturi de acces grup: R--
-drepturi de acces altii: R--
+drepturi de acces grup: RW-
+drepturi de acces altii: RW-
+
+nume fisier: imagine_1.bmp
+inaltime: 467
+lungime: 467
+dimensiune: 219634
+identificatorul utilizatorului: 0
+timpul ultimei modificari: 26.11.2023
+contorul de legaturi: 1
+drepturi de acces user: RW-
+drepturi de acces grup: RW-
+drepturi de acces altii: RW-
+
+nume director: test
+identificatorul utilizatorului: 0
+drepturi de acces user: RWX
+drepturi de acces grup: RWX
+drepturi de acces altii: RWX
+
