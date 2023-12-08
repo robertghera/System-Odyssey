@@ -1,9 +1,11 @@
 nume legatura: link
-dimensiune: 38
-dimensiune fisier: 140726524064168
+dimensiune: 101
+dimensiune fisier: 0
 drepturi de acces user: RW-
 drepturi de acces grup: R--
 drepturi de acces altii: R--
+
+ altii: R--
 
 imensiune fisier: 140735883080104
 drepturi de acces user: RW-

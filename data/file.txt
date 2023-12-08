@@ -1,1 +1,5 @@
-asdasdas d as da sdas dasdsa das d asd
+Asta este valid c.
+Asta nu va fi valid c ,si.
+Asta invalid c , si.
+Asta merge c.
+asta nu va merge c .

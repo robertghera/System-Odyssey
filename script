@@ -1,0 +1,19 @@
+if [ "$#" -ne 1 ]; then
+    echo "Usage: $0 <c>"
+    exit 1
+fi
+
+c="$1"
+
+validSentences=0
+
+while IFS= read -r line; do
+
+    if [[ "$line" =~ ^[A-Z].*[A-Za-z0-9\ \,]*[\.!\?]+$ && ! "$line" =~ ,(\ ){0,}(si([\ \.\!\?]+)) ]]; then
+        if [[ "$line" =~ $c ]]; then
+            ((validSentences++))
+        fi
+    fi
+done
+
+echo "$validSentences"

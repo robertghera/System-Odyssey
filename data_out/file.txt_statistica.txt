@@ -1,5 +1,5 @@
 nume fisier: file.txt
-dimensiune: 38
+dimensiune: 101
 identificatorul utilizatorului: 1000
 timpul ultimei modificari: 08.12.2023
 contorul de legaturi: 1

@@ -1,26 +1,51 @@
-nume fisier: file.txt
-dimensiune: 38
-identificatorul utilizatorului: 0
-timpul ultimei modificari: 26.11.2023
-contorul de legaturi: 1
-drepturi de acces user: RW-
-drepturi de acces grup: RW-
-drepturi de acces altii: RW-
-
-nume fisier: imagine_1.bmp
-inaltime: 467
-lungime: 467
-dimensiune: 219634
-identificatorul utilizatorului: 0
-timpul ultimei modificari: 26.11.2023
-contorul de legaturi: 1
-drepturi de acces user: RW-
-drepturi de acces grup: RW-
-drepturi de acces altii: RW-
-
-nume director: test
-identificatorul utilizatorului: 0
-drepturi de acces user: RWX
-drepturi de acces grup: RWX
-drepturi de acces altii: RWX
-
+6
+10
+5
+8
+10
+6
+5
+8
+127
+10
+6
+5
+8
+127
+10
+6
+5
+8
+10
+6
+5
+8
+10
+6
+5
+8
+10
+6
+5
+8
+8
+6
+10
+5
+6
+10
+8
+1
+5
+5
+6
+10
+8
+5
+6
+10
+8
+6
+10
+5
+8

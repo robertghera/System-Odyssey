@@ -9,6 +9,7 @@
 #include <sys/wait.h>
 #include <string.h>
 #include <regex.h>
+#include <errno.h>
 
 #define BUFSIZE 1024
 #define MAX_PROCESS 16
@@ -33,7 +34,7 @@ typedef struct bmpHeader {
 #pragma pack()
 
 void usage(char *name) {
-    printf("Usage: %s <entry_dir> <output_dir>\n", name);
+    printf("Usage: %s <entry_dir> <output_dir> <c>\n", name);
 }
 
 char *userPermission(mode_t userPerm) {
@@ -219,7 +220,7 @@ int processFileStats(struct dirent *dirent, struct stat stats) {
     return 8;
 }
 
-void processDirectory(char *directoryPath) {
+void processDirectory(char *directoryPath, char *character) {
     DIR *dir = NULL;
     struct dirent *dirent = NULL;
 
@@ -279,6 +280,32 @@ void processDirectory(char *directoryPath) {
                     processImageConversion(filePath);
                     exit(0);
                 }
+            } else if (S_ISREG(stats.st_mode)) {
+                if (totalProcessesRunning < MAX_PROCESS && (pid[totalProcessesRunning] = fork()) < 0) {
+                    perror("Error creating a new process\n");
+                    exit(1);
+                }
+                totalProcessesRunning++;
+
+                if (pid[totalProcessesRunning - 1] == 0) {
+                    int exitProcess = 0;
+                    exitProcess = processFileStats(dirent, stats);
+                    exit(exitProcess);
+                }
+
+                if (totalProcessesRunning < MAX_PROCESS && (pid[totalProcessesRunning] = fork()) < 0) {
+                    perror("Error creating a new process\n");
+                    exit(1);
+                }
+                totalProcessesRunning++;
+
+                if (pid[totalProcessesRunning - 1] == 0) {
+                    //execlp("bash", "bash", "./script", character, (char *)NULL);
+
+                    // perror("Error executin bash script\n");
+                    // exit(1);
+                    exit(0);
+                }
             } else {
                 if (totalProcessesRunning < MAX_PROCESS && (pid[totalProcessesRunning] = fork()) < 0) {
                     perror("Error creating a new process\n");
@@ -290,8 +317,6 @@ void processDirectory(char *directoryPath) {
                     int exitProcess = 0;
                     if (S_ISDIR(stats.st_mode)) {
                         exitProcess = processDirectoryStats(dirent, stats);
-                    } else if (S_ISREG(stats.st_mode)) {
-                        exitProcess = processFileStats(dirent, stats);
                     } else if (S_ISLNK(stats.st_mode)) {
                         struct stat statsFile;
 
@@ -311,10 +336,27 @@ void processDirectory(char *directoryPath) {
     pid_t waitProcessID;
     int processStatus;
 
+    int fStats;
+    if ((fStats = open("statistica.txt", O_APPEND | O_WRONLY | O_CREAT, S_IRWXU)) < 0) {
+        perror("Error opening file for stats\n");
+        exit(1);
+    }
+
     for (int i = 0; i < totalProcessesRunning; i++) {
         waitProcessID = wait(&processStatus);
         if (WIFEXITED(processStatus)) {
-            printf("The child process %d finished with code %d\n", waitProcessID, WEXITSTATUS(processStatus));
+            int exitStatus = WEXITSTATUS(processStatus);
+            printf("S-a încheiat procesul cu pid-ul %d și codul %d\n", waitProcessID, exitStatus);
+
+            if (exitStatus > 0) {
+                char output[BUFSIZE];
+                int outputSize = sprintf(output, "%d\n", exitStatus);
+
+                if (write(fStats, output, outputSize) < 0) {
+                    perror("Error writing to file\n");
+                    exit(1);
+                }
+            }
         } else {
             printf("The child process %d finished abnormally", waitProcessID);
         }
@@ -327,12 +369,12 @@ void processDirectory(char *directoryPath) {
 }
 
 int main(int argc, char *argv[]) {
-    if (argc != 3) {
+    if (argc != 4) {
         usage(argv[0]);
         exit(1);
     }
 
-    processDirectory(argv[1]);
+    processDirectory(argv[1], argv[3]);
 
     return 0;
 }
