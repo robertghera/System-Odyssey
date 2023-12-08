@@ -33,7 +33,7 @@ typedef struct bmpHeader {
 #pragma pack()
 
 void usage(char *name) {
-    printf("Usage: %s \n", name);
+    printf("Usage: %s <entry_dir> <output_dir>\n", name);
 }
 
 char *userPermission(mode_t userPerm) {
@@ -79,19 +79,22 @@ char *writePermission(struct stat stats) {
     return buf;
 }
 
-int openStatFile() {
+int openStatFile(char *filePath) {
     static int fd;
+    char fileToOpen[BUFSIZE] = "data_out/";
+    strcat(fileToOpen, filePath);
+    strcat(fileToOpen, "_statistica.txt");
 
-    if ((fd = open("statistica.txt", O_APPEND | O_WRONLY | O_CREAT, S_IRWXU)) < 0) {
-        printf("Error opening output file\n");
-        exit(5);
+    if ((fd = open(fileToOpen, O_WRONLY | O_CREAT, S_IRWXU)) < 0) {
+        perror("Error opening output file\n");
+        exit(1);
     }
 
     return fd;
 }
 
 int processDirectoryStats(struct dirent *dirent, struct stat stats) {
-    int fd = openStatFile();
+    int fd = openStatFile(dirent->d_name);
 
     char output[BUFSIZE * 2];
     char buf[BUFSIZE];
@@ -102,15 +105,15 @@ int processDirectoryStats(struct dirent *dirent, struct stat stats) {
                              dirent->d_name, stats.st_uid, writePermission(stats));
 
     if (write(fd, output, outputSize) < 0) {
-        printf("Error writing to file\n");
-        exit(6);
+        perror("Error writing to file\n");
+        exit(1);
     }
 
     return 5;
 }
 
 int processImageStats(struct dirent *dirent, struct stat stats, char *filePath) {
-    int fd = openStatFile(), outputSize;
+    int fd = openStatFile(dirent->d_name), outputSize;
     char output[BUFSIZE * 2];
     char buf[BUFSIZE];
 
@@ -120,29 +123,29 @@ int processImageStats(struct dirent *dirent, struct stat stats, char *filePath) 
     struct bmpHeader statsBmpHeader;
 
     if ((f1 = open(filePath, O_RDONLY)) < 0) {
-        printf("Error opening input file\n");
-        exit(3);
+        perror("Error opening input file\n");
+        exit(1);
     }
 
     if (read(f1, &statsBmpHeader, sizeof(bmpHeader)) < 0) {
-        printf("Error reading input file\n");
-        exit(4);
+        perror("Error reading input file\n");
+        exit(1);
     }
 
     outputSize = sprintf(output,
-                         "nume fisier: %s\ninaltime: %d\nlungime: %d\ndimensiune: %ld\nidentificatorul utilizatorului: %d\ntimpul ultimei modificari: %s\ncontorul de legaturi: %d\n%s\n",
+                         "nume fisier: %s\ninaltime: %d\nlungime: %d\ndimensiune: %ld\nidentificatorul utilizatorului: %d\ntimpul ultimei modificari: %s\ncontorul de legaturi: %ld\n%s\n",
                          dirent->d_name, statsBmpHeader.height, statsBmpHeader.width, stats.st_size, stats.st_uid,
                          buf,
                          stats.st_nlink, writePermission(stats));
 
     if (close(f1) < 0) {
-        printf("Error closing file\n");
-        exit(8);
+        perror("Error closing file\n");
+        exit(1);
     }
 
     if (write(fd, output, outputSize) < 0) {
-        printf("Error writing to file\n");
-        exit(6);
+        perror("Error writing to file\n");
+        exit(1);
     }
 
     return 10;
@@ -154,13 +157,13 @@ void processImageConversion(char *filePath) {
     struct bmpHeader statsBmpHeader;
 
     if ((f1 = open(filePath, O_RDWR)) < 0) {
-        printf("Error opening input file\n");
-        exit(3);
+        perror("Error opening input file\n");
+        exit(1);
     }
 
     if (read(f1, &statsBmpHeader, sizeof(bmpHeader)) < 0) {
-        printf("Error reading input file\n");
-        exit(4);
+        perror("Error reading input file\n");
+        exit(1);
     }
 
     lseek(f1, statsBmpHeader.dataOffset, SEEK_SET);
@@ -174,27 +177,43 @@ void processImageConversion(char *filePath) {
 
 
     if (close(f1) < 0) {
-        printf("Error closing file\n");
-        exit(8);
+        perror("Error closing file\n");
+        exit(1);
     }
 }
 
-int processFileStats(struct dirent *dirent, struct stat stats, char *filePath) {
-    int fd = openStatFile(), outputSize;
+int processLinkFileStats(struct dirent *dirent, struct stat stats, struct stat statsFile) {
+    int fd = openStatFile(dirent->d_name), outputSize;
+    char output[BUFSIZE * 2];
+
+    outputSize = sprintf(output,
+                         "nume legatura: %s\ndimensiune: %ld\ndimensiune fisier: %ld\n%s\n",
+                         dirent->d_name, stats.st_size, statsFile.st_size,writePermission(stats));
+
+    if (write(fd, output, outputSize) < 0) {
+        perror("Error writing to file\n");
+        exit(1);
+    }
+
+    return 6;
+}
+
+int processFileStats(struct dirent *dirent, struct stat stats) {
+    int fd = openStatFile(dirent->d_name), outputSize;
     char output[BUFSIZE * 2];
     char buf[BUFSIZE];
 
     strftime(buf, sizeof(buf), "%d.%m.%Y", gmtime(&stats.st_mtime));
 
     outputSize = sprintf(output,
-                         "nume fisier: %s\ndimensiune: %ld\nidentificatorul utilizatorului: %d\ntimpul ultimei modificari: %s\ncontorul de legaturi: %d\n%s\n",
+                         "nume fisier: %s\ndimensiune: %ld\nidentificatorul utilizatorului: %d\ntimpul ultimei modificari: %s\ncontorul de legaturi: %ld\n%s\n",
                          dirent->d_name, stats.st_size, stats.st_uid,
                          buf,
                          stats.st_nlink, writePermission(stats));
 
     if (write(fd, output, outputSize) < 0) {
-        printf("Error writing to file\n");
-        exit(6);
+        perror("Error writing to file\n");
+        exit(1);
     }
 
     return 8;
@@ -205,7 +224,7 @@ void processDirectory(char *directoryPath) {
     struct dirent *dirent = NULL;
 
     if ((dir = opendir(directoryPath)) == NULL) {
-        printf("Error opening directory\n");
+        perror("Error opening directory\n");
         exit(1);
     }
 
@@ -214,8 +233,8 @@ void processDirectory(char *directoryPath) {
 
     regex_t regexBMP;
     if (regcomp(&regexBMP, ".bmp$", 0) != 0) {
-        printf("Regex could not compile\n");
-        exit(15);
+        perror("Regex could not compile\n");
+        exit(1);
     }
 
     while ((dirent = readdir(dir)) != NULL) {
@@ -227,9 +246,9 @@ void processDirectory(char *directoryPath) {
             strcat(filePath, "/");
             strcat(filePath, dirent->d_name);
 
-            if (stat(filePath, &stats) < 0) {
-                printf("Error getting stats from input file\n");
-                exit(2);
+            if (lstat(filePath, &stats) < 0) {
+                perror("Error getting stats from input file\n");
+                exit(1);
             }
 
             int isValidRegex = REG_NOMATCH;
@@ -240,8 +259,8 @@ void processDirectory(char *directoryPath) {
             if (S_ISREG(stats.st_mode) && isValidRegex == 0) {
                 // Is bmp file
                 if (totalProcessesRunning < MAX_PROCESS && (pid[totalProcessesRunning] = fork()) < 0) {
-                    printf("Error creating a new process\n");
-                    exit(10);
+                    perror("Error creating a new process\n");
+                    exit(1);
                 }
                 totalProcessesRunning++;
 
@@ -251,8 +270,8 @@ void processDirectory(char *directoryPath) {
                 }
 
                 if (totalProcessesRunning < MAX_PROCESS && (pid[totalProcessesRunning] = fork()) < 0) {
-                    printf("Error creating a new process\n");
-                    exit(10);
+                    perror("Error creating a new process\n");
+                    exit(1);
                 }
                 totalProcessesRunning++;
 
@@ -262,8 +281,8 @@ void processDirectory(char *directoryPath) {
                 }
             } else {
                 if (totalProcessesRunning < MAX_PROCESS && (pid[totalProcessesRunning] = fork()) < 0) {
-                    printf("Error creating a new process\n");
-                    exit(10);
+                    perror("Error creating a new process\n");
+                    exit(1);
                 }
                 totalProcessesRunning++;
 
@@ -272,7 +291,15 @@ void processDirectory(char *directoryPath) {
                     if (S_ISDIR(stats.st_mode)) {
                         exitProcess = processDirectoryStats(dirent, stats);
                     } else if (S_ISREG(stats.st_mode)) {
-                        exitProcess = processFileStats(dirent, stats, filePath);
+                        exitProcess = processFileStats(dirent, stats);
+                    } else if (S_ISLNK(stats.st_mode)) {
+                        struct stat statsFile;
+
+                        if (stat(filePath, &stats) < 0) {
+                            perror("Error getting stats from input file\n");
+                            exit(1);
+                        }
+                        exitProcess = processLinkFileStats(dirent, stats, statsFile);
                     }
 
                     exit(exitProcess);
@@ -294,13 +321,13 @@ void processDirectory(char *directoryPath) {
     }
 
     if (closedir(dir) < 0) {
-        printf("Error closing dir\n");
-        exit(8);
+        perror("Error closing dir\n");
+        exit(1);
     }
 }
 
 int main(int argc, char *argv[]) {
-    if (argc != 2) {
+    if (argc != 3) {
         usage(argv[0]);
         exit(1);
     }
