@@ -6,8 +6,12 @@
 #include <stdlib.h>
 #include <time.h>
 #include <dirent.h>
+#include <sys/wait.h>
+#include <string.h>
+#include <regex.h>
 
 #define BUFSIZE 1024
+#define MAX_PROCESS 16
 
 #pragma pack(1)
 typedef struct bmpHeader {
@@ -18,6 +22,13 @@ typedef struct bmpHeader {
     int size;
     int width;
     int height;
+    char planes[2];
+    char bitCount[2];
+    int compression;
+    int xPixelPerM;
+    int yPixelPerM;
+    int colorsUsed;
+    int colorsImportant;
 } bmpHeader;
 #pragma pack()
 
@@ -83,7 +94,7 @@ int openStatFile() {
     return fd;
 }
 
-void processDirectoryStats(struct dirent *dirent, struct stat stats) {
+int processDirectoryStats(struct dirent *dirent, struct stat stats) {
     int fd = openStatFile();
 
     char output[BUFSIZE * 2];
@@ -94,57 +105,103 @@ void processDirectoryStats(struct dirent *dirent, struct stat stats) {
                              "nume director: %s\nidentificatorul utilizatorului: %d\n%s\n",
                              dirent->d_name, stats.st_uid, writePermission(stats));
 
-    printf("%s", output);
     if (write(fd, output, outputSize) < 0) {
         printf("Error writing to file\n");
         exit(6);
     }
+
+    return 5;
 }
 
-void processFileStats(struct dirent *dirent, struct stat stats, char *filePath) {
+int processImageStats(struct dirent *dirent, struct stat stats, char *filePath) {
     int fd = openStatFile(), outputSize;
     char output[BUFSIZE * 2];
     char buf[BUFSIZE];
 
     strftime(buf, sizeof(buf), "%d.%m.%Y", gmtime(&stats.st_mtime));
 
-    if (strcmp(&dirent->d_name[dirent->d_namlen - 4], ".bmp") == 0) {
-        int f1;
-        struct bmpHeader statsBmpHeader;
+    int f1;
+    struct bmpHeader statsBmpHeader;
 
-        if ((f1 = open(filePath, O_RDONLY)) < 0) {
-            printf("Error opening input file\n");
-            exit(3);
-        }
-
-        if (read(f1, &statsBmpHeader, sizeof(bmpHeader)) < 0) {
-            printf("Error reading input file\n");
-            exit(4);
-        }
-
-        outputSize = sprintf(output,
-                                 "nume fisier: %s\ninaltime: %d\nlungime: %d\ndimensiune: %ld\nidentificatorul utilizatorului: %d\ntimpul ultimei modificari: %s\ncontorul de legaturi: %d\n%s\n",
-                                 dirent->d_name, statsBmpHeader.height, statsBmpHeader.width, stats.st_size, stats.st_uid,
-                                 buf,
-                                 stats.st_nlink, writePermission(stats));
-
-        if(close(f1) < 0) {
-            printf("Error closing file\n");
-            exit(8);
-        }
-    } else {
-        outputSize = sprintf(output,
-                                 "nume fisier: %s\ndimensiune: %ld\nidentificatorul utilizatorului: %d\ntimpul ultimei modificari: %s\ncontorul de legaturi: %d\n%s\n",
-                                 dirent->d_name, stats.st_size, stats.st_uid,
-                                 buf,
-                                 stats.st_nlink, writePermission(stats));
+    if ((f1 = open(filePath, O_RDONLY)) < 0) {
+        printf("Error opening input file\n");
+        exit(3);
     }
 
-    printf("%s", output);
+    if (read(f1, &statsBmpHeader, sizeof(bmpHeader)) < 0) {
+        printf("Error reading input file\n");
+        exit(4);
+    }
+
+    outputSize = sprintf(output,
+                         "nume fisier: %s\ninaltime: %d\nlungime: %d\ndimensiune: %ld\nidentificatorul utilizatorului: %d\ntimpul ultimei modificari: %s\ncontorul de legaturi: %d\n%s\n",
+                         dirent->d_name, statsBmpHeader.height, statsBmpHeader.width, stats.st_size, stats.st_uid,
+                         buf,
+                         stats.st_nlink, writePermission(stats));
+
+    if (close(f1) < 0) {
+        printf("Error closing file\n");
+        exit(8);
+    }
+
     if (write(fd, output, outputSize) < 0) {
         printf("Error writing to file\n");
         exit(6);
     }
+
+    return 10;
+}
+
+void processImageConversion(char *filePath) {
+    int f1, bytesRead;
+    char colors[3];
+    struct bmpHeader statsBmpHeader;
+
+    if ((f1 = open(filePath, O_RDWR)) < 0) {
+        printf("Error opening input file\n");
+        exit(3);
+    }
+
+    if (read(f1, &statsBmpHeader, sizeof(bmpHeader)) < 0) {
+        printf("Error reading input file\n");
+        exit(4);
+    }
+
+    lseek(f1, statsBmpHeader.dataOffset, SEEK_SET);
+
+    while ((bytesRead = read(f1, colors, sizeof(colors))) > 0) {
+        char grayscale = 0.299 * colors[0] + 0.587 * colors[1] + 0.114 * colors[2];
+        memset(colors, grayscale, sizeof(colors));
+        lseek(f1, -bytesRead, SEEK_CUR);
+        write(f1, colors, sizeof(colors));
+    }
+
+
+    if (close(f1) < 0) {
+        printf("Error closing file\n");
+        exit(8);
+    }
+}
+
+int processFileStats(struct dirent *dirent, struct stat stats, char *filePath) {
+    int fd = openStatFile(), outputSize;
+    char output[BUFSIZE * 2];
+    char buf[BUFSIZE];
+
+    strftime(buf, sizeof(buf), "%d.%m.%Y", gmtime(&stats.st_mtime));
+
+    outputSize = sprintf(output,
+                         "nume fisier: %s\ndimensiune: %ld\nidentificatorul utilizatorului: %d\ntimpul ultimei modificari: %s\ncontorul de legaturi: %d\n%s\n",
+                         dirent->d_name, stats.st_size, stats.st_uid,
+                         buf,
+                         stats.st_nlink, writePermission(stats));
+
+    if (write(fd, output, outputSize) < 0) {
+        printf("Error writing to file\n");
+        exit(6);
+    }
+
+    return 8;
 }
 
 void processDirectory(char *directoryPath) {
@@ -154,6 +211,15 @@ void processDirectory(char *directoryPath) {
     if ((dir = opendir(directoryPath)) == NULL) {
         printf("Error opening directory\n");
         exit(1);
+    }
+
+    pid_t pid[MAX_PROCESS];
+    int totalProcessesRunning = 0;
+
+    regex_t regexBMP;
+    if (regcomp(&regexBMP, ".bmp$", 0) != 0) {
+        printf("Regex could not compile\n");
+        exit(15);
     }
 
     while ((dirent = readdir(dir)) != NULL) {
@@ -170,15 +236,68 @@ void processDirectory(char *directoryPath) {
                 exit(2);
             }
 
-            if (S_ISDIR(stats.st_mode)) {
-                processDirectoryStats(dirent, stats);
-            } else if (S_ISREG(stats.st_mode)) {
-                processFileStats(dirent, stats, filePath);
+            int isValidRegex = REG_NOMATCH;
+            if (S_ISREG(stats.st_mode)) {
+                isValidRegex = regexec(&regexBMP, dirent->d_name, 0, NULL, 0);
+            }
+
+            if (S_ISREG(stats.st_mode) && isValidRegex == 0) {
+                // Is bmp file
+                if (totalProcessesRunning < MAX_PROCESS && (pid[totalProcessesRunning] = fork()) < 0) {
+                    printf("Error creating a new process\n");
+                    exit(10);
+                }
+                totalProcessesRunning++;
+
+                if (pid[totalProcessesRunning - 1] == 0) {
+                    int exitProcess = processImageStats(dirent, stats, filePath);
+                    exit(exitProcess);
+                }
+
+                if (totalProcessesRunning < MAX_PROCESS && (pid[totalProcessesRunning] = fork()) < 0) {
+                    printf("Error creating a new process\n");
+                    exit(10);
+                }
+                totalProcessesRunning++;
+
+                if (pid[totalProcessesRunning - 1] == 0) {
+                    processImageConversion(filePath);
+                    exit(0);
+                }
+            } else {
+                if (totalProcessesRunning < MAX_PROCESS && (pid[totalProcessesRunning] = fork()) < 0) {
+                    printf("Error creating a new process\n");
+                    exit(10);
+                }
+                totalProcessesRunning++;
+
+                if (pid[totalProcessesRunning - 1] == 0) {
+                    int exitProcess = 0;
+                    if (S_ISDIR(stats.st_mode)) {
+                        exitProcess = processDirectoryStats(dirent, stats);
+                    } else if (S_ISREG(stats.st_mode)) {
+                        exitProcess = processFileStats(dirent, stats, filePath);
+                    }
+
+                    exit(exitProcess);
+                }
             }
         }
     }
 
-    if(closedir(dir) < 0) {
+    pid_t waitProcessID;
+    int processStatus;
+
+    for (int i = 0; i < totalProcessesRunning; i++) {
+        waitProcessID = wait(&processStatus);
+        if (WIFEXITED(processStatus)) {
+            printf("The child process %d finished with code %d\n", waitProcessID, WEXITSTATUS(processStatus));
+        } else {
+            printf("The child process %d finished abnormally", waitProcessID);
+        }
+    }
+
+    if (closedir(dir) < 0) {
         printf("Error closing dir\n");
         exit(8);
     }
