@@ -32,10 +32,6 @@ typedef struct bmpHeader {
 } bmpHeader;
 #pragma pack()
 
-//struct stat stats;
-//struct bmpHeader statsBmpHeader;
-//char buf[BUFSIZE];
-
 void usage(char *name) {
     printf("Usage: %s \n", name);
 }
