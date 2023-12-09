@@ -348,6 +348,7 @@ void processDirectory(char *directoryPath, char *outDirectory, char *character) 
 
     pid_t waitProcessID;
     int processStatus;
+    int totalValidSentences = 0;
 
     int fStats;
     if ((fStats = open("statistica.txt", O_APPEND | O_WRONLY | O_CREAT, S_IRWXU)) < 0) {
@@ -374,6 +375,8 @@ void processDirectory(char *directoryPath, char *outDirectory, char *character) 
             printf("The child process %d finished abnormally", waitProcessID);
         }
     }
+
+    printf("Au fost identificate in total %d propozitii corecte care contin caracterul %s\n", totalValidSentences, character);
 
     if (closedir(dir) < 0) {
         perror("Error closing dir\n");
