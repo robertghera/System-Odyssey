@@ -3,7 +3,7 @@ inaltime: 467
 lungime: 467
 dimensiune: 219634
 identificatorul utilizatorului: 1000
-timpul ultimei modificari: 08.12.2023
+timpul ultimei modificari: 09.12.2023
 contorul de legaturi: 1
 drepturi de acces user: RW-
 drepturi de acces grup: R--

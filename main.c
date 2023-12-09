@@ -11,8 +11,8 @@
 #include <regex.h>
 #include <errno.h>
 
-#define BUFSIZE 1024
-#define MAX_PROCESS 16
+#define BUFSIZE 512
+#define MAX_PROCESS 32
 
 #pragma pack(1)
 typedef struct bmpHeader {
@@ -167,11 +167,13 @@ void processImageConversion(char *filePath) {
         exit(1);
     }
 
+    // Set the offset bytes
     lseek(f1, statsBmpHeader.dataOffset, SEEK_SET);
 
     while ((bytesRead = read(f1, colors, sizeof(colors))) > 0) {
         char grayscale = 0.299 * colors[0] + 0.587 * colors[1] + 0.114 * colors[2];
         memset(colors, grayscale, sizeof(colors));
+        // Move to the position we started the read operation
         lseek(f1, -bytesRead, SEEK_CUR);
         write(f1, colors, sizeof(colors));
     }
@@ -189,7 +191,7 @@ int processLinkFileStats(struct dirent *dirent, struct stat stats, struct stat s
 
     outputSize = sprintf(output,
                          "nume legatura: %s\ndimensiune: %ld\ndimensiune fisier: %ld\n%s\n",
-                         dirent->d_name, stats.st_size, statsFile.st_size,writePermission(stats));
+                         dirent->d_name, stats.st_size, statsFile.st_size, writePermission(stats));
 
     if (write(fd, output, outputSize) < 0) {
         perror("Error writing to file\n");
@@ -220,12 +222,17 @@ int processFileStats(struct dirent *dirent, struct stat stats) {
     return 8;
 }
 
-void processDirectory(char *directoryPath, char *character) {
+void processDirectory(char *directoryPath, char *outDirectory, char *character) {
     DIR *dir = NULL;
     struct dirent *dirent = NULL;
 
     if ((dir = opendir(directoryPath)) == NULL) {
         perror("Error opening directory\n");
+        exit(1);
+    }
+
+    if ((opendir(outDirectory)) == NULL) {
+        perror("Error opening output directory\n");
         exit(1);
     }
 
@@ -259,6 +266,7 @@ void processDirectory(char *directoryPath, char *character) {
 
             if (S_ISREG(stats.st_mode) && isValidRegex == 0) {
                 // Is bmp file
+                // First process for stats
                 if (totalProcessesRunning < MAX_PROCESS && (pid[totalProcessesRunning] = fork()) < 0) {
                     perror("Error creating a new process\n");
                     exit(1);
@@ -270,6 +278,7 @@ void processDirectory(char *directoryPath, char *character) {
                     exit(exitProcess);
                 }
 
+                // Second process for color changes
                 if (totalProcessesRunning < MAX_PROCESS && (pid[totalProcessesRunning] = fork()) < 0) {
                     perror("Error creating a new process\n");
                     exit(1);
@@ -281,6 +290,8 @@ void processDirectory(char *directoryPath, char *character) {
                     exit(0);
                 }
             } else if (S_ISREG(stats.st_mode)) {
+                // Is regulat file and not .bmp
+                // First process for stats
                 if (totalProcessesRunning < MAX_PROCESS && (pid[totalProcessesRunning] = fork()) < 0) {
                     perror("Error creating a new process\n");
                     exit(1);
@@ -293,6 +304,7 @@ void processDirectory(char *directoryPath, char *character) {
                     exit(exitProcess);
                 }
 
+                // Second process for script
                 if (totalProcessesRunning < MAX_PROCESS && (pid[totalProcessesRunning] = fork()) < 0) {
                     perror("Error creating a new process\n");
                     exit(1);
@@ -300,13 +312,14 @@ void processDirectory(char *directoryPath, char *character) {
                 totalProcessesRunning++;
 
                 if (pid[totalProcessesRunning - 1] == 0) {
-                    //execlp("bash", "bash", "./script", character, (char *)NULL);
+                    // execlp("bash", "bash", "./script", character, (char *)NULL);
 
                     // perror("Error executin bash script\n");
                     // exit(1);
                     exit(0);
                 }
             } else {
+                // Is dir or sym link
                 if (totalProcessesRunning < MAX_PROCESS && (pid[totalProcessesRunning] = fork()) < 0) {
                     perror("Error creating a new process\n");
                     exit(1);
@@ -374,7 +387,7 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
-    processDirectory(argv[1], argv[3]);
+    processDirectory(argv[1], argv[2], argv[3]);
 
     return 0;
 }
